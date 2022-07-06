@@ -1,6 +1,7 @@
-import requests
+import requests, re
 from bs4 import BeautifulSoup as bs4
-URL = "https://django-anuncios.solyd.com.br"
+
+DOMINIO = "https://django-anuncios.solyd.com.br"
 
 
 def site_request(url):
@@ -27,27 +28,42 @@ def parsing_html(html):
         print(error)
 
 
-def search_links(soup): 
+def find_links(soup):
     """Busca links dentro do site alvo"""
     try:
         site_links = []
         card_root = soup.find('div', class_="ui three doubling link cards")
         card_child = card_root.find_all('a', class_="card")
         for card in card_child: 
-            site_links.append(URL+card["href"])
+            site_links.append(DOMINIO+card["href"])
         return site_links
     except Exception as error: 
         print("Erro durante busca de links.")
         print(error)
 
-        
-if  __name__ == "__main__":
-    html = site_request(URL)
-    soup = parsing_html(html)
-    links = search_links(soup)
-    for link in links: 
-        print(link)
+
+def find_phones(soup):
+    try:
+        announcement = soup.find_all("div", class_="sixteen wide column")[2].p.get_text().strip()
+    except:
+        print("Erro na requisição.")
+        return None
     
+    phones = re.findall(r"\(?0?([1-9]{2})[ \-\.\)]{0,2}(9[ \-\.]?\d{4})[ \-\.]?(\d{4})", announcement)
+    if phones:
+        return phones
 
-
-
+if __name__ == "__main__":
+    html = site_request(DOMINIO)
+    if html:
+        soup = parsing_html(html)
+        if soup:
+            links = find_links(soup)
+            for link in links:
+                announcement = site_request(link)
+                if announcement:
+                    soup_announcement = parsing_html(announcement)
+                    if soup_announcement: 
+                        phones = find_phones(soup_announcement)
+                        if phones:
+                            print(phones)
