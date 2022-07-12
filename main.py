@@ -1,7 +1,10 @@
-import requests, re
+import requests, re, threading
 from bs4 import BeautifulSoup as bs4
 
+
 DOMINIO = "https://django-anuncios.solyd.com.br"
+LINKS = []
+PHONE_NUMBER = []
 
 
 def site_request(url):
@@ -53,17 +56,57 @@ def find_phones(soup):
     if phones:
         return phones
 
+
+def get_phones():
+    while True:
+        try:
+            announcement_link = LINKS.pop(0)
+        except:
+            return None
+
+
+        response_announcement = site_request(announcement_link)
+
+        if response_announcement:
+            soup_announcement = parsing_html(response_announcement)
+            if soup_announcement:
+                phones = find_phones(soup_announcement)
+                if phones:
+                    for p in phones:
+                        PHONE_NUMBER.append(p)
+                        print(f"Telefone encontrado: ({p[0]}){p[1]}-{p[2]}")
+
+
+def export_phones(phone):
+    formated_phone = f"({phone[0]}) {phone[1]}-{phone[2]}\n"
+    try:
+        with open("Telefones.csv", "a") as file:
+            file.write(formated_phone)
+
+    except Exception as error:
+        print("Erro ao salvar arquivo.")
+        print(error)
+
+
 if __name__ == "__main__":
     html = site_request(DOMINIO)
     if html:
         soup = parsing_html(html)
         if soup:
-            links = find_links(soup)
-            for link in links:
-                announcement = site_request(link)
-                if announcement:
-                    soup_announcement = parsing_html(announcement)
-                    if soup_announcement: 
-                        phones = find_phones(soup_announcement)
-                        if phones:
-                            print(phones)
+            LINKS = find_links(soup)
+
+
+            THREADS = []
+            for i in range(5):    
+                t = threading.Thread(target=get_phones)
+                THREADS.append(t)
+
+            for t in THREADS:
+                t.start()
+            
+            for t in THREADS:
+                t.join()
+
+            for p in PHONE_NUMBER:
+                export_phones(p)
+            
